@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+  </head>
+  <body>
+  <script>
+    window.onload = function () {
+    console.log('oo');
+      var MAX_CYCLE = 1000 ;
+      var packet, cycleCount = 0;
+      addChunks();
+    
+      function addChunks () {
+        //create new chunks in the document and see how long it takes as the doc gets bigger
+        if (cycleCount < MAX_CYCLE) {
+          google.script.run
+        
+          .withFailureHandler( function (err) {
+             throw err;
+          })
+        
+          .withSuccessHandler ( function (data) {
+             cycleCount ++;
+             packet = data;
+             console.log(JSON.stringify(packet));
+             //recurse
+             addChunks();
+          })
+        
+          .performanceTest (packet);
+        }
+        else {
+          // dump result
+          google.script.run.dumpResult (packet);
+          
+        }
+      }
+    };
+  </script>  
+  </body>
+</html>
+
+
