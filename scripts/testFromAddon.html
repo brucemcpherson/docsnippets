@@ -6,8 +6,8 @@
   <body>
   <script>
     window.onload = function () {
-    console.log('oo');
-      var MAX_CYCLE = 1000 ;
+
+      var MAX_CYCLE = 20 ;
       var packet, cycleCount = 0;
       addChunks();
     
@@ -24,16 +24,16 @@
              cycleCount ++;
              packet = data;
              console.log(JSON.stringify(packet));
-             //recurse
+             console.log('done '+cycleCount)
              addChunks();
           })
         
-          .performanceTest (packet);
+          .performanceTest (packet, new Date().getTime());
         }
         else {
           // dump result
           google.script.run.dumpResult (packet);
-          
+          console.log('dumped');
         }
       }
     };
