@@ -16,7 +16,7 @@ function testThings() {
 
 function doLotsOfThings(docId) {
   
-  var MAX = 20, MIN =2 , ROWS = 10, COLUMNS = 8, CYCLES = 20;
+  var MAX = 40, MIN = 20 , ROWS = 20, COLUMNS = 8, CYCLES = 100;
   var body = DocumentApp.openById (docId).getBody();
   
   // clear whats there
@@ -30,10 +30,11 @@ function doLotsOfThings(docId) {
       }).join('');
     });
   });
-
+  
   // append a table of the given size  
   for (var i=0; i < CYCLES ; i++) {
-    body.appendTable(cUseful.getRandomSheetStrings(ROWS,COLUMNS,MAX,MIN)); 
+    body.appendParagraph('table ' + i);
+    body.appendTable(rows); 
   }
 }
 
@@ -45,19 +46,26 @@ function doGet() {
       .setSandboxMode(HtmlService.SandboxMode.IFRAME);
 }
 
-function performanceTest (package) {
-  return PerformanceTest.createChunk('1MR7QCbasRsAWRCeEc2baeNfyZBr2ZpMPsXxvNAHFfB4',package);
+function performanceTest (package,initiated) {
+  return PerformanceTest.createChunk(
+    '1MR7QCbasRsAWRCeEc2baeNfyZBr2ZpMPsXxvNAHFfB4',
+    package,
+    initiated
+  ); 
 }
 
 function dumpResult (package) {
-  Logger.log(package);
-  
+  // write the data to the sheet
+  new cSheetExec.SheetExec()
+    .sheetOpen ('1Higg488LQnUzuvfXphD0fTaOqqpdAPDbwlWfokZYPyk','initiated')
+    .clearContent()
+    .setData (package);
 }
 
 var PerformanceTest = (function(pt) {
   'use strict';
   
-  var ELEMENT_SIZE = 1000, ELEMENT_ROWS = 10, ELEMENT_COLUMNS = 8;
+  var MAX = 200, MIN = 50, ROWS = 40, COLUMNS = 10;
   
   function action_ ( packet , action , argOb , measure, func ) {
     
@@ -66,6 +74,7 @@ var PerformanceTest = (function(pt) {
 
     packet.push ( {
       action:action,
+      start:start,
       elapsed:new Date().getTime() - start,
       measure:measure
     });
@@ -76,45 +85,61 @@ var PerformanceTest = (function(pt) {
   /**
    * create a bunch of pages
    */
-  pt.createChunk = function (docId,packet) {
+  pt.createChunk = function (docId,packet,initiated) {
     
     if (!packet) {
       // first in, clear the document
       DocumentApp.openById (docId).getBody().clear();
     }
     var packet = packet || []; 
-
-    // open a document
-    var doc = action_ (packet , 'open' , docId , 0, function (id) {
-      return DocumentApp.openById (id);
-    }); 
-
-    // get the body
-    var body = action_ (packet , 'body' , null , 0 ,function () {
-      return doc.getBody(); 
-    }); 
     
-    // add some stuff
-    var stuff = new Array(ELEMENT_SIZE+1).join(new Date().getTime().toString(36));
-    for (var j=0,rows=[] ; j < ELEMENT_ROWS ; j++) {
-      rows[j] = [];
-      for (var i = 0  ; i < ELEMENT_COLUMNS ;i++) {
-        rows[j].push(stuff); 
-      }
-    }
-    var elem = action_ (packet , 'chunk' , null, stuff.length  , function () {
-      return cUseful.rateLimitExpBackoff(function () {
-          return body.appendTable(rows); 
+    action_ (packet , 'cycle', null, initiated , function () {
+      // open a document
+      var doc = action_ (packet , 'open' , docId , 0, function (id) {
+        return DocumentApp.openById (id);
+      }); 
+      var openPacket = packet[packet.length-1];
+      
+      // get the body
+      var body = action_ (packet , 'body' , null , 0,function () {
+        return doc.getBody(); 
+      }); 
+      
+      // get the body as text before adding some more
+      var text = action_ (packet , 'pretext' , null , 0 ,function () {
+        return body.getText(); 
       });
-    });
-    // get the body as text
-    var text = action_ (packet , 'text' , null , 0 ,function () {
-      return body.getText(); 
-    });
-    // add the size of the text now
-    packet[packet.length-1].measure = text.length;
+      openPacket.measure = text.length;
+      
+      var para = 'Writing another table';
+      var elem = action_ (packet , 'paragraph' , para, para.length  , function (stuff) {
+        return body.appendParagraph(stuff); 
+      });
+      
+      // add some stuff
+      var stuff = cUseful.getRandomSheetStrings(ROWS,COLUMNS,MAX,MIN);
+      var elem = action_ (packet , 'chunk' , stuff, 0 , function () {
+        return body.appendTable(stuff); 
+      });
+      
+      // get the body as text
+      var postText = action_ (packet , 'posttext' , null , 0 ,function () {
+        return body.getText(); 
+      });
+      // add the size of the text now
+      packet[packet.length-1].measure = postText.length;
+      
+      // and on the previous
+      packet[packet.length-2].measure = postText.length - text.length;
+      
+      // close
+      /*
+      action_ (packet , 'saveandclose' , null, postText.length  , function () {
+        doc.saveAndClose();
+      });
+      */
     
-    
+    });
     return packet;
   };
 
