@@ -12,13 +12,31 @@ function getLibraryInfo () {
   return {
     info: {
       name:'cUseful',
-      version:'2.2.14',
+      version:'2.2.35',
       key:'Mcbr-v4SsYKJP7JMohttAZyz3TLx7pV4j',
       share:'https://script.google.com/d/1EbLSESpiGkI3PYmJqWh3-rmLkYKAtCNPi1L2YCtMgo2Ut8xMThfJ41Ex/edit?usp=sharing',
       description:'various dependency free useful functions'
-    },
-    dependencies:[]
+    }
   }; 
+}
+
+/**
+ * test for a date object
+ * @param {*} ob the on to test
+ * @return {boolean} t/f
+ */
+function isDateObject (ob) {
+  return isObject(ob) && ob.constructor && ob.constructor.name === "Date";
+}
+
+/**
+ * test a string is an email address
+ * from http://www.regular-expressions.info/email.html
+ * @param {string} emailAddress the address to be tested
+ * @return {boolean} whether it is and email address
+ */
+function isEmail (emailAddress) {
+  return /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i.test(emailAddress);
 }
 /**
  * used to create a random 2 dim set of values for a sheet
@@ -38,7 +56,10 @@ function getRandomSheetStrings (rows,columns,min,max) {
     return new Array (columns).join(',').split(',').map(function() {
       var size = Math.floor(Math.random() * (max- min + 1)) + min;
       return size ? new Array(size).join(',').split(',').map(function() {
-        return String.fromCharCode(Math.floor(Math.random() * (0x7E - 0x30 + 1)) + 0x30);    
+        var s = String.fromCharCode(Math.floor(Math.random() * (0x7E - 0x30 + 1)) + 0x30); 
+        // don't allow = as 1st character
+        if (s.slice(0,1) === '=') s = 'x' + s.slice(1);
+        return s;
       }).join('') : '';
     });
   });
@@ -141,7 +162,7 @@ function clone (o) {
 /**
  * recursive rateLimitExpBackoff()
  * @param {function} callBack some function to call that might return rate limit exception
- * @param {number} [sleepFor=1000] optional amount of time to sleep for on the first failure in missliseconds
+ * @param {number} [sleepFor=750] optional amount of time to sleep for on the first failure in missliseconds
  * @param {number} [maxAttempts=5] optional maximum number of amounts to try
  * @param {number} [attempts=1] optional the attempt number of this instance - usually only used recursively and not user supplied
  * @param {boolean} [optLogAttempts=false] log re-attempts to Logger
@@ -157,13 +178,15 @@ function rateLimitExpBackoff ( callBack, sleepFor ,  maxAttempts, attempts , opt
     return ["Exception: Service invoked too many times",
             "Exception: Rate Limit Exceeded",
             "Exception: Quota Error: User Rate Limit Exceeded",
-            "Service error: Spreadsheets",
+            "Service error:",
+            "Exception: Service error:", 
             "Exception: User rate limit exceeded",
             "Exception: Internal error. Please try again.",
             "Exception: Cannot execute AddColumn because another task",
             "Service invoked too many times in a short time:",
             "Exception: Internal error.",
             "Exception: ???????? ?????: DriveApp.",
+            "User Rate Limit Exceeded",
             TRYAGAIN
 
            ]
@@ -173,8 +196,8 @@ function rateLimitExpBackoff ( callBack, sleepFor ,  maxAttempts, attempts , opt
   }
   
   
-  // sleep start default is  1 seconds
-  sleepFor = Math.abs(sleepFor || 1000);
+  // sleep start default is  .75 seconds
+  sleepFor = Math.abs(sleepFor || 750);
   
   // attempt number
   attempts = Math.abs(attempts || 1);
@@ -184,7 +207,7 @@ function rateLimitExpBackoff ( callBack, sleepFor ,  maxAttempts, attempts , opt
   
   // make sure that the checker is really a function
   if (optChecker && typeof(callBack) !== "function") {
-    throw ("if you specify a checker it must be a function");
+    throw errorStack("if you specify a checker it must be a function");
   }
   
   // check properly constructed
@@ -200,8 +223,8 @@ function rateLimitExpBackoff ( callBack, sleepFor ,  maxAttempts, attempts , opt
       var r = callBack();
       
       // this is to find content based errors that might benefit from a retry
-
       return optChecker ? optChecker(r) : r;
+      
     }
     catch(err) {
     
@@ -211,12 +234,12 @@ function rateLimitExpBackoff ( callBack, sleepFor ,  maxAttempts, attempts , opt
         
         //give up?
         if (attempts > maxAttempts) {
-          throw (err + " (tried backing off " + (attempts-1) + " times");
+          throw errorStack(err + " (tried backing off " + (attempts-1) + " times");
         }
         else {
           
           // wait for some amount of time based on how many times we've tried plus a small random bit to avoid races
-          Utilities.sleep (Math.pow(2,attempts)*sleepFor) + (Math.round(Math.random() * sleepFor));
+          Utilities.sleep (Math.pow(2,attempts)*sleepFor + (Math.round(Math.random() * sleepFor)));
           
           // try again
           return rateLimitExpBackoff ( callBack, sleepFor ,  maxAttempts , attempts+1,optLogAttempts);
@@ -224,12 +247,25 @@ function rateLimitExpBackoff ( callBack, sleepFor ,  maxAttempts, attempts , opt
       }
       else {
         // some other error
-        throw (err);
+        throw errorStack(err);
       }
     }
   }
 }
 
+/**
+ * get the stack
+ * @return {string} the stack trace
+ */
+function errorStack(e) {
+  try {
+    // throw a fake error
+    throw new Error();  //x is undefined and will fail under use struct- ths will provoke an error so i can get the call stack
+  }
+  catch(err) {
+    return 'Error:' + e + '\n' + err.stack.split('\n').slice(1).join('\n');
+  }
+}
 /**
  * append array b to array a
  * @param {Array.*} a array to be appended to 
@@ -346,7 +382,7 @@ function whereAmI(level) {
   
   try {
     // throw a fake error
-    var __y__ = __X_;  //x is undefined and will fail under use struct- ths will provoke an error so i can get the call stack
+    throw new Error();  //x is undefined and will fail under use struct- ths will provoke an error so i can get the call stack
   }
   catch (err) {
     // return the error object so we know where we are
@@ -516,7 +552,7 @@ function padLeading (stringtoPad , targetLength , padWith) {
  * @return {string} decoded as as string
  */
 function b64ToString ( b64) {
-  return Utilities.newBlob(Utilities.base64Decode(result.content)).getDataAsString();
+  return Utilities.newBlob(Utilities.base64Decode(b64)).getDataAsString();
 }
 
 /**
@@ -683,4 +719,22 @@ function timeFunction () {
     timedResult.elapsed = timedResult.finish - timedResult.start;
     
     return timedResult;
+}
+
+/**
+* remove padding from base 64 as per JWT spec
+* @param {string} b64 the encoded string
+* @return {string} padding removed
+*/
+function unPadB64 (b64) {
+  return b64 ?  b64.split ("=")[0] : b64;
+}
+
+/**
+* b64 and unpad an item suitable for jwt consumptions
+* @param {string} itemString the item to be encoded
+* @return {string}  the encoded
+*/
+function encodeB64 (itemString) {
+  return unPadB64 (Utilities.base64EncodeWebSafe( itemString));
 }
