@@ -1,0 +1,21 @@
+{
+  "timeZone": "Europe/London",
+  "dependencies": {
+    "libraries": [{
+      "userSymbol": "cUseful",
+      "libraryId": "1EbLSESpiGkI3PYmJqWh3-rmLkYKAtCNPi1L2YCtMgo2Ut8xMThfJ41Ex",
+      "version": "27",
+      "developmentMode": true
+    }, {
+      "userSymbol": "cSheetExec",
+      "libraryId": "1zbtiz6OG-2i_0mQSc7bBa0_zklqoyF55AP5mCpVj4t-wLyUpBZMJGhtI",
+      "version": "1",
+      "developmentMode": true
+    }]
+  },
+  "webapp": {
+    "access": "MYSELF",
+    "executeAs": "USER_DEPLOYING"
+  },
+  "exceptionLogging": "STACKDRIVER"
+}
